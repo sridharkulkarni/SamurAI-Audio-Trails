@@ -279,14 +279,19 @@ void AudioCapture::CaptureThread(bool loopback, const std::string& deviceId,
       hr = captureClient->GetBuffer(&data, &packetLength, &flags, nullptr, nullptr);
 
       if (SUCCEEDED(hr)) {
-        if (!(flags & AUDCLNT_BUFFERFLAGS_SILENT)) {
-          // Convert to PCM 16-bit 44.1kHz if needed
-          size_t dataSize = packetLength;
-          
-          // Call callback with audio data
-          if (callback) {
-            callback(data, dataSize);
-          }
+        // Always send data, even if silent (for debugging and to ensure data flow)
+        size_t dataSize = packetLength;
+        
+        // If silent, we still send zeros (this is normal for silence)
+        // But we should still process the data
+        if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
+          // Buffer is silent (all zeros), but we still send it
+          // This is normal when no audio is playing
+        }
+        
+        // Call callback with audio data
+        if (callback && dataSize > 0) {
+          callback(data, dataSize);
         }
 
         captureClient->ReleaseBuffer(packetLength);

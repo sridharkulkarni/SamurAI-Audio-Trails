@@ -2,6 +2,8 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <windows.h>
+#include <processthreadsapi.h>
 
 AudioCaptureHandler::AudioCaptureHandler(flutter::FlutterEngine* engine)
     : engine_(engine) {
@@ -100,6 +102,30 @@ void AudioCaptureHandler::HandleMethodCall(
   } else if (method_name == "stopMicrophoneCapture") {
     audio_capture_->StopMicrophoneCapture();
     result->Success(flutter::EncodableValue(true));
+  } else if (method_name == "convertToMp3") {
+    std::string wavPath = "";
+    std::string mp3Path = "";
+    
+    if (method_call.arguments() && method_call.arguments()->IsMap()) {
+      const auto& args = std::get<flutter::EncodableMap>(*method_call.arguments());
+      auto wavIt = args.find(flutter::EncodableValue("wavPath"));
+      auto mp3It = args.find(flutter::EncodableValue("mp3Path"));
+      
+      if (wavIt != args.end()) {
+        wavPath = std::get<std::string>(wavIt->second);
+      }
+      if (mp3It != args.end()) {
+        mp3Path = std::get<std::string>(mp3It->second);
+      }
+    }
+    
+    if (wavPath.empty() || mp3Path.empty()) {
+      result->Error("INVALID_ARGS", "wavPath and mp3Path are required");
+      return;
+    }
+    
+    bool success = ConvertWavToMp3(wavPath, mp3Path);
+    result->Success(flutter::EncodableValue(success));
   } else {
     result->NotImplemented();
   }
@@ -127,7 +153,7 @@ void AudioCaptureHandler::OnAudioData(const uint8_t* data, size_t size, bool isS
   }
 
   // Print to console
-  std::cout << (isSystemAudio ? "[SYSTEM] " : "[MIC] ") << base64 << std::endl;
+  //std::cout << (isSystemAudio ? "[SYSTEM] " : "[MIC] ") << base64 << std::endl;
 
   // Also send to Flutter via event channel
   if (method_channel_ && engine_) {
@@ -140,5 +166,44 @@ void AudioCaptureHandler::OnAudioData(const uint8_t* data, size_t size, bool isS
     method_channel_->InvokeMethod("onAudioData", 
         std::make_unique<flutter::EncodableValue>(event_data));
   }
+}
+
+bool AudioCaptureHandler::ConvertWavToMp3(const std::string& wavPath, const std::string& mp3Path) {
+  STARTUPINFOA si = { sizeof(si) };
+  PROCESS_INFORMATION pi;
+  ZeroMemory(&si, sizeof(si));
+  ZeroMemory(&pi, sizeof(pi));
+  
+  // Build command: ffmpeg -i input.wav -codec:a libmp3lame -b:a 192k -y output.mp3
+  std::string cmd = "ffmpeg -i \"" + wavPath + "\" -codec:a libmp3lame -b:a 192k -y \"" + mp3Path + "\"";
+  
+  // Create process
+  BOOL success = CreateProcessA(
+    NULL,                    // Application name
+    const_cast<char*>(cmd.c_str()),  // Command line
+    NULL,                    // Process security attributes
+    NULL,                    // Thread security attributes
+    FALSE,                   // Inherit handles
+    CREATE_NO_WINDOW,        // Creation flags
+    NULL,                    // Environment
+    NULL,                    // Current directory
+    &si,                     // Startup info
+    &pi                      // Process information
+  );
+  
+  if (!success) {
+    return false;
+  }
+  
+  // Wait for process to complete
+  WaitForSingleObject(pi.hProcess, INFINITE);
+  
+  DWORD exitCode;
+  GetExitCodeProcess(pi.hProcess, &exitCode);
+  
+  CloseHandle(pi.hProcess);
+  CloseHandle(pi.hThread);
+  
+  return exitCode == 0;
 }
 

@@ -18,6 +18,7 @@ class AudioCaptureHandler {
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
   void OnAudioData(const uint8_t* data, size_t size, bool isSystemAudio);
+  bool ConvertWavToMp3(const std::string& wavPath, const std::string& mp3Path);
 
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> method_channel_;
   std::unique_ptr<AudioCapture> audio_capture_;

@@ -9,7 +9,7 @@ class AudioControlCard extends StatelessWidget {
   final VoidCallback? onDeviceSelected;
   final ValueChanged<String?>? onDeviceChanged;
   final VoidCallback onToggleCapture;
-  final VoidCallback onToggleConsoleOutput;
+  final VoidCallback? onToggleConsoleOutput;
 
   const AudioControlCard({
     super.key,
@@ -21,7 +21,7 @@ class AudioControlCard extends StatelessWidget {
     this.onDeviceSelected,
     this.onDeviceChanged,
     required this.onToggleCapture,
-    required this.onToggleConsoleOutput,
+    this.onToggleConsoleOutput,
   });
 
   @override
@@ -100,18 +100,20 @@ class AudioControlCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            // Console Output Toggle
-            Row(
-              children: [
-                Switch(
-                  value: consoleOutputEnabled,
-                  onChanged: (_) => onToggleConsoleOutput(),
-                ),
-                const SizedBox(width: 8),
-                const Text('Console Output'),
-              ],
-            ),
+            if (onToggleConsoleOutput != null) ...[
+              const SizedBox(height: 12),
+              // Save to File Toggle
+              Row(
+                children: [
+                  Switch(
+                    value: consoleOutputEnabled,
+                    onChanged: (_) => onToggleConsoleOutput!(),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Save to File'),
+                ],
+              ),
+            ],
           ],
         ),
       ),
